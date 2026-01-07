@@ -35,8 +35,8 @@ def initialize_vertices_springs(vertices: wp.array(dtype=wp.vec3),
         x = tid // square
         z = tid - x * square
 
-        pos_x = -CLOTH_SIZE/2.0 + (CLOTH_SIZE*((wp.float32(x)+1.0)/wp.float32(square)))
-        pos_z = -CLOTH_SIZE/2.0 + (CLOTH_SIZE*((wp.float32(z)+1.0)/wp.float32(square)))
+        pos_x = -CLOTH_SIZE/2.0 + (CLOTH_SIZE*((wp.float32(x)+1.0)/wp.float32(square - 1)))
+        pos_z = -CLOTH_SIZE/2.0 + (CLOTH_SIZE*((wp.float32(z)+1.0)/wp.float32(square - 1)))
         pos = wp.vec3(pos_x, CLOTH_HEIGHT, pos_z)
         vertices[tid] = pos
 
@@ -196,6 +196,21 @@ def collision(vertices: wp.array(dtype=wp.vec3),
 
             previous_vertices[tid] = vertices[tid] - (velocity_tangent * dt)
 
+def initialize_mesh_triangles(square):
+
+    triangles = []
+
+    for i in range(square - 1):
+        for j in range(square - 1):
+
+            x = i + (j * square)
+            z = x + square
+
+            triangles.append([x+1, z, x])
+            triangles.append([z+1, z, x+1])
+
+    return triangles
+
 
 if __name__ == "__main__":
 
@@ -211,7 +226,7 @@ if __name__ == "__main__":
 
     vertices = wp.zeros(shape=vertices_count, dtype=wp.vec3)
     square = int(math.sqrt(vertices_count))
-    structural_spring_rest_length = CLOTH_SIZE / square
+    structural_spring_rest_length = CLOTH_SIZE / (square - 1)
     shear_spring_rest_length = structural_spring_rest_length * math.sqrt(2.0)
 
     pinned_vertices = wp.zeros(shape=vertices_count, dtype=int)
@@ -235,6 +250,8 @@ if __name__ == "__main__":
     
     previous_vertices = wp.clone(vertices)
 
+    triangles = initialize_mesh_triangles(square)
+
     with open(os.path.join(warp.examples.get_asset_directory(), "rocks.nvdb"), "rb") as file:
             # create Volume object
             volume = wp.Volume.load_from_nvdb(file)
@@ -256,9 +273,13 @@ if __name__ == "__main__":
                             color=(0.0, 0.0, 0.0))
         
         np_vertices = vertices.numpy()
-        renderer.render_points(name="balls",
-                            points=np_vertices,
-                            radius=0.01)
+        #renderer.render_points(name="balls",
+        #                    points=np_vertices,
+        #                    radius=0.01)
+
+        renderer.render_mesh(name="cloth",
+                             points=np_vertices,
+                             indices=triangles)
                     
         renderer.end_frame()
 
